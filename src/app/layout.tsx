@@ -36,9 +36,9 @@ export default function RootLayout({
             {/* Hero ribbon */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 -top-24 h-56 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 blur-2xl opacity-60 dark:opacity-40"
+              className="pointer-events-none absolute inset-x-0 -top-24 h-64 bg-gradient-to-r from-primary/35 via-accent/35 to-primary/35 blur-xl opacity-90 dark:opacity-70"
             />
-            <main className="mx-auto max-w-5xl px-3 py-3">
+            <main className="mx-auto max-w-8xl px-3 py-3">
               {children}
             </main>
           </div>
