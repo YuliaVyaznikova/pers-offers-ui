@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Personalized Offers",
   description: "Marketing optimization UI",
+  icons: {
+    icon: "/logo.ico",
+  },
 };
 
 export default function RootLayout({

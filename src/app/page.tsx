@@ -75,7 +75,7 @@ export default function Home() {
   ])
 
   const [budget, setBudget] = useState<number>(100000)
-  const [model, setModel] = useState<"model1" | "model2">("model2")
+  const [model, setModel] = useState<"model1" | "model2">("model1")
 
   const usedChannelTypes = useMemo(
     () => new Set(channels.map((c) => c.type).filter(Boolean) as ChannelType[]),
@@ -137,7 +137,7 @@ export default function Home() {
             {/* header row for columns */}
             <div className="hidden sm:grid grid-cols-12 gap-6 text-xs text-muted-foreground font-medium px-0">
               <div className="sm:col-span-6">Channel</div>
-              <div className="sm:col-span-3">max</div>
+              <div className="sm:col-span-3">amount</div>
               <div className="sm:col-span-2">cost ₽</div>
               <div className="sm:col-span-1" />
             </div>
@@ -169,7 +169,7 @@ export default function Home() {
                     value={row.max ?? ""}
                     onChange={(e) => updateChannel(row.id, { max: Number(e.target.value) })}
                     placeholder="0"
-                    aria-label="max"
+                    aria-label="amount"
                   />
                 </div>
                 <div className="sm:col-span-2">
