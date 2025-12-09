@@ -162,8 +162,8 @@ export default function Home() {
             {/* header row for columns */}
             <div className="hidden sm:grid grid-cols-12 gap-6 text-xs text-muted-foreground font-medium px-0">
               <div className="sm:col-span-6">Channel</div>
-              <div className="sm:col-span-3">amount</div>
-              <div className="sm:col-span-2">cost ₽</div>
+              <div className="sm:col-span-3">Amount</div>
+              <div className="sm:col-span-2">Cost (₽)</div>
               <div className="sm:col-span-1" />
             </div>
 
@@ -239,7 +239,7 @@ export default function Home() {
             {/* header row for columns */}
             <div className="hidden sm:grid grid-cols-12 gap-4 text-xs text-muted-foreground font-medium px-0">
               <div className="sm:col-span-7">Product</div>
-              <div className="sm:col-span-4">LTV ₽</div>
+              <div className="sm:col-span-4">LTV (₽)</div>
             </div>
 
             {products.map((row) => (
@@ -367,10 +367,10 @@ export default function Home() {
                 <table className="w-full text-sm">
                   <thead className="text-muted-foreground">
                     <tr className="text-left">
-                      <th className="py-1 pr-2">channel_id</th>
-                      <th className="py-1 pr-2">offers_count</th>
-                      <th className="py-1 pr-2">total_cost</th>
-                      <th className="py-1 pr-2">total_revenue</th>
+                      <th className="py-1 pr-2">Channel</th>
+                      <th className="py-1 pr-2">Offers count</th>
+                      <th className="py-1 pr-2">Total cost</th>
+                      <th className="py-1 pr-2">Total revenue</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -392,9 +392,9 @@ export default function Home() {
                 <table className="w-full text-sm">
                   <thead className="text-muted-foreground">
                     <tr className="text-left">
-                      <th className="py-1 pr-2">product_id</th>
-                      <th className="py-1 pr-2">offers_count</th>
-                      <th className="py-1 pr-2">avg_affinity_revenue</th>
+                      <th className="py-1 pr-2">Product</th>
+                      <th className="py-1 pr-2">Offers count</th>
+                      <th className="py-1 pr-2">Avg affinity revenue</th>
                     </tr>
                   </thead>
                   <tbody>
