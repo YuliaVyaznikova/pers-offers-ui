@@ -147,7 +147,7 @@ export default function Home() {
         </h1>
         <p className="text-muted-foreground mt-1 flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-accent" />
-          оптимизация маркетинговых контактов
+          marketing contacts optimization
         </p>
       </div>
 
@@ -351,23 +351,23 @@ export default function Home() {
             <div className="space-y-6">
               {/* Summary */}
               <div>
-                <div className="font-medium mb-2">Результаты кампании</div>
+                <div className="font-medium mb-2">Campaign results</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Доступный бюджет:</span> {results.summary.budget_available.toLocaleString("ru-RU")} ₽</div>
-                  <div><span className="text-muted-foreground">Фактический расход:</span> {results.summary.actual_spend.toLocaleString("ru-RU")} ₽ ({results.summary.actual_spend_percent.toFixed(1)}%)</div>
-                  <div><span className="text-muted-foreground">Ожидаемая выручка:</span> {results.summary.expected_revenue.toLocaleString("ru-RU")} ₽</div>
-                  <div><span className="text-muted-foreground">Ожидаемый ROI:</span> {results.summary.expected_roi_percent.toFixed(1)}%</div>
-                  <div><span className="text-muted-foreground">Охват клиентов:</span> {results.summary.reach_clients.toLocaleString("ru-RU")} чел.</div>
+                  <div><span className="text-muted-foreground">Available budget:</span> {results.summary.budget_available.toLocaleString("ru-RU")} ₽</div>
+                  <div><span className="text-muted-foreground">Actual spend:</span> {results.summary.actual_spend.toLocaleString("ru-RU")} ₽ ({results.summary.actual_spend_percent.toFixed(1)}%)</div>
+                  <div><span className="text-muted-foreground">Expected revenue:</span> {results.summary.expected_revenue.toLocaleString("ru-RU")} ₽</div>
+                  <div><span className="text-muted-foreground">Expected ROI:</span> {results.summary.expected_roi_percent.toFixed(1)}%</div>
+                  <div><span className="text-muted-foreground">Reach (clients):</span> {results.summary.reach_clients.toLocaleString("ru-RU")}</div>
                 </div>
               </div>
 
               {/* Channels usage */}
               <div className="overflow-x-auto">
-                <div className="font-medium mb-2">Использование каналов</div>
+                <div className="font-medium mb-2">Channel usage</div>
                 <table className="w-full text-sm">
                   <thead className="text-muted-foreground">
                     <tr className="text-left">
-                      <th className="py-1 pr-2">canal_id</th>
+                      <th className="py-1 pr-2">channel_id</th>
                       <th className="py-1 pr-2">offers_count</th>
                       <th className="py-1 pr-2">total_cost</th>
                       <th className="py-1 pr-2">total_revenue</th>
@@ -388,7 +388,7 @@ export default function Home() {
 
               {/* Products distribution */}
               <div className="overflow-x-auto">
-                <div className="font-medium mb-2">Распределение по продуктам</div>
+                <div className="font-medium mb-2">Product distribution</div>
                 <table className="w-full text-sm">
                   <thead className="text-muted-foreground">
                     <tr className="text-left">
