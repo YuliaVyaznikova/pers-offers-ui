@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
-/* Полный набор CSS-переменных для shadcn/ui, чтобы карточки/границы/тексты меняли тему корректно */
 @layer base {
   :root {
-    /* Light theme inspired by image: soft light-blue bg, blue primary, orange accent */
     --background: 220 33% 98%;      /* very light blue */
     --foreground: 222 47% 11%;      /* near black / slate */
 
@@ -70,7 +68,6 @@
   body { @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))]; }
 }
 
-/* Соответствие токенов Tailwind классов (bg-background, text-foreground и т.д.) уже есть в shadcn компонентах */
 @theme inline {
   /* Map Tailwind color tokens to CSS variables so utilities like bg-background work */
   --color-background: hsl(var(--background));

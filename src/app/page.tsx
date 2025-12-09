@@ -61,21 +61,44 @@ const PRODUCT_OPTIONS: ProductType[] = [
   "Product 6",
 ]
 
+type OptimizeResponse = {
+  summary: {
+    budget_available: number
+    actual_spend: number
+    actual_spend_percent: number
+    expected_revenue: number
+    expected_roi_percent: number
+    reach_clients: number
+  }
+  channels_usage: Array<{
+    canal_id: string
+    offers_count: number
+    total_cost: number
+    total_revenue: number
+  }>
+  products_distribution: Array<{
+    product_id: string
+    offers_count: number
+    avg_affinity_revenue: number
+  }>
+}
+
 export default function Home() {
   const [channels, setChannels] = useState<ChannelRow[]>([
-    { id: crypto.randomUUID(), type: "SMS", max: 5000, cost: 0.7 },
-    { id: crypto.randomUUID(), type: "Email", max: 750000, cost: 0.004 },
-    { id: crypto.randomUUID(), type: "Phone calls", max: 2000, cost: 2.9 },
+    { id: crypto.randomUUID(), type: undefined, max: 0, cost: 0 },
+    { id: crypto.randomUUID(), type: undefined, max: 0, cost: 0 },
+    { id: crypto.randomUUID(), type: undefined, max: 0, cost: 0 },
   ])
 
   const [products, setProducts] = useState<ProductRow[]>([
-    { id: crypto.randomUUID(), product: "Product 1", ltv: 30000 },
-    { id: crypto.randomUUID(), product: "Product 2", ltv: 24000 },
-    { id: crypto.randomUUID(), product: "Product 3", ltv: 3500 },
+    { id: crypto.randomUUID(), product: undefined, ltv: 0 },
+    { id: crypto.randomUUID(), product: undefined, ltv: 0 },
+    { id: crypto.randomUUID(), product: undefined, ltv: 0 },
   ])
 
   const [budget, setBudget] = useState<number>(100000)
   const [model, setModel] = useState<"model1" | "model2">("model1")
+  const [results, setResults] = useState<OptimizeResponse | null>(null)
 
   const usedChannelTypes = useMemo(
     () => new Set(channels.map((c) => c.type).filter(Boolean) as ChannelType[]),
@@ -96,22 +119,24 @@ export default function Home() {
   const removeChannel = (id: string) =>
     setChannels((prev) => prev.filter((c) => c.id !== id))
   const addChannel = () =>
-    setChannels((prev) => [...prev, { id: crypto.randomUUID() }])
+    setChannels((prev) => [...prev, { id: crypto.randomUUID(), type: undefined, max: 0, cost: 0 }])
 
   const updateProduct = (id: string, patch: Partial<ProductRow>) =>
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
   const removeProduct = (id: string) =>
     setProducts((prev) => prev.filter((p) => p.id !== id))
   const addProduct = () =>
-    setProducts((prev) => [...prev, { id: crypto.randomUUID() }])
+    setProducts((prev) => [...prev, { id: crypto.randomUUID(), product: undefined, ltv: 0 }])
 
   const onGetResults = () => {
-    console.log({
-      budget,
-      model,
-      channels,
-      products,
+    fetch("/api/optimize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ budget, model, channels, products }),
     })
+      .then((r) => r.json())
+      .then((data) => setResults(data))
+      .catch((e) => console.error(e))
   }
 
   return (
@@ -310,7 +335,7 @@ export default function Home() {
                 </Tabs>
               </div>
               <Button className="w-full h-9" onClick={onGetResults}>
-                Get Results
+                Get results
               </Button>
             </div>
           </CardContent>
@@ -322,7 +347,71 @@ export default function Home() {
           <CardTitle>Results</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">-</p>
+          {results ? (
+            <div className="space-y-6">
+              {/* Summary */}
+              <div>
+                <div className="font-medium mb-2">Результаты кампании</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                  <div><span className="text-muted-foreground">Доступный бюджет:</span> {results.summary.budget_available.toLocaleString("ru-RU")} ₽</div>
+                  <div><span className="text-muted-foreground">Фактический расход:</span> {results.summary.actual_spend.toLocaleString("ru-RU")} ₽ ({results.summary.actual_spend_percent.toFixed(1)}%)</div>
+                  <div><span className="text-muted-foreground">Ожидаемая выручка:</span> {results.summary.expected_revenue.toLocaleString("ru-RU")} ₽</div>
+                  <div><span className="text-muted-foreground">Ожидаемый ROI:</span> {results.summary.expected_roi_percent.toFixed(1)}%</div>
+                  <div><span className="text-muted-foreground">Охват клиентов:</span> {results.summary.reach_clients.toLocaleString("ru-RU")} чел.</div>
+                </div>
+              </div>
+
+              {/* Channels usage */}
+              <div className="overflow-x-auto">
+                <div className="font-medium mb-2">Использование каналов</div>
+                <table className="w-full text-sm">
+                  <thead className="text-muted-foreground">
+                    <tr className="text-left">
+                      <th className="py-1 pr-2">canal_id</th>
+                      <th className="py-1 pr-2">offers_count</th>
+                      <th className="py-1 pr-2">total_cost</th>
+                      <th className="py-1 pr-2">total_revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.channels_usage.map((c, i) => (
+                      <tr key={i} className="border-t border-border">
+                        <td className="py-1 pr-2">{c.canal_id}</td>
+                        <td className="py-1 pr-2">{c.offers_count.toLocaleString("ru-RU")}</td>
+                        <td className="py-1 pr-2">{Math.round(c.total_cost).toLocaleString("ru-RU")} ₽</td>
+                        <td className="py-1 pr-2">{Math.round(c.total_revenue).toLocaleString("ru-RU")} ₽</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Products distribution */}
+              <div className="overflow-x-auto">
+                <div className="font-medium mb-2">Распределение по продуктам</div>
+                <table className="w-full text-sm">
+                  <thead className="text-muted-foreground">
+                    <tr className="text-left">
+                      <th className="py-1 pr-2">product_id</th>
+                      <th className="py-1 pr-2">offers_count</th>
+                      <th className="py-1 pr-2">avg_affinity_revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.products_distribution.map((p, i) => (
+                      <tr key={i} className="border-t border-border">
+                        <td className="py-1 pr-2">{p.product_id}</td>
+                        <td className="py-1 pr-2">{p.offers_count.toLocaleString("ru-RU")}</td>
+                        <td className="py-1 pr-2">{Math.round(p.avg_affinity_revenue).toLocaleString("ru-RU")} ₽</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">-</p>
+          )}
         </CardContent>
       </Card>
     </div>
