@@ -1,9 +1,14 @@
 "use client"
+import * as React from "react"
 import { useI18n } from "./language-provider"
 import { Button } from "@/components/ui/button"
 
 export function LanguageToggle() {
   const { lang, setLang } = useI18n()
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => setMounted(true), [])
+  if (!mounted) return null
+
   const next = lang === "en" ? "ru" : "en"
   const label = lang === "en" ? "RU" : "EN"
 

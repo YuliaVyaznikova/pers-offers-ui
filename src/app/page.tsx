@@ -48,34 +48,21 @@ const CHANNEL_OPTIONS: ChannelType[] = [
 ]
 
 const PRODUCT_OPTIONS: ProductOption[] = [
-  { id: "product_0", label: "Дебетовая карта" },
-  { id: "product_1", label: "Вклад" },
-  { id: "product_2", label: "Автокредит" },
-  { id: "product_4", label: "Банковская подписка" },
-  { id: "product_5", label: "Кредитная карта" },
-  { id: "product_6", label: "Кредит наличными" },
+  { id: "debit_card", label: "Дебетовая карта" },
+  { id: "deposit", label: "Вклад" },
+  { id: "auto_loan", label: "Автокредит" },
+  { id: "bank_subscription", label: "Банковская подписка" },
+  { id: "credit_card", label: "Кредитная карта" },
+  { id: "cash_loan", label: "Кредит наличными" },
 ]
 
 type OptimizeResponse = {
-  summary: {
-    budget_available: number
-    actual_spend: number
-    actual_spend_percent: number
-    expected_revenue: number
-    expected_roi_percent: number
-    reach_clients: number
-  }
-  channels_usage: Array<{
-    channel_id: string
-    offers_count: number
-    total_cost: number
-    total_revenue: number
-  }>
-  products_distribution: Array<{
-    product_id: string
-    offers_count: number
-    avg_affinity_revenue: number
-  }>
+  // [budget_available, actual_spend, actual_spend_percent, expected_revenue, expected_roi_percent, reach_clients]
+  summary: [number, number, number, number, number, number]
+  // channel_id -> [offers_count, total_cost, total_revenue]
+  channels_usage: Record<string, [number, number, number]>
+  // product_id -> [offers_count, avg_affinity_revenue]
+  products_distribution: Record<string, [number, number]>
 }
 
 export default function Home() {
@@ -95,6 +82,7 @@ export default function Home() {
   const [budget, setBudget] = useState<number>(100000)
   const [model, setModel] = useState<"model1" | "model2">("model1")
   const [results, setResults] = useState<OptimizeResponse | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
 
   const usedChannelTypes = useMemo(
     () => new Set(channels.map((c) => c.type).filter(Boolean) as ChannelType[]),
@@ -125,6 +113,8 @@ export default function Home() {
     setProducts((prev) => [...prev, { id: crypto.randomUUID(), product_id: undefined, ltv: 0 }])
 
   const onGetResults = () => {
+    setLoading(true)
+    const start = Date.now()
     const channelCode = (t?: ChannelType): string | undefined => {
       switch (t) {
         case "SMS": return "sms"
@@ -136,20 +126,23 @@ export default function Home() {
         default: return undefined
       }
     }
+    const channelsMap = Object.fromEntries(
+      channels
+        .map(c => [channelCode(c.type), [c.max ?? 0, c.cost ?? 0] as [number, number]])
+        .filter(([k]) => !!k)
+    ) as Record<string, [number, number]>
+    const productsMap = Object.fromEntries(
+      products
+        .map(p => [p.product_id, p.ltv ?? 0])
+        .filter(([k]) => !!k)
+    ) as Record<string, number>
     const payloadV2 = {
       budget,
       model: model === "model1" ? "catboost" : "lightgbm",
-      channels: channels.map(c => ({
-        channel_id: channelCode(c.type),
-        number: c.max ?? 0,
-        cost_per_contact: c.cost ?? 0,
-      })),
-      products: products.map(p => ({
-        product_id: p.product_id,
-        ltv: p.ltv ?? 0,
-      })),
+      channels: channelsMap,
+      products: productsMap,
     }
-    fetch("/api/optimize", {
+    fetch("/api/optimize?delay=500000", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payloadV2),
@@ -157,6 +150,12 @@ export default function Home() {
       .then((r) => r.json())
       .then((data) => setResults(data))
       .catch((e) => console.error(e))
+      .finally(() => {
+        const MIN_LOADING_MS = 3000
+        const elapsed = Date.now() - start
+        const remain = Math.max(0, MIN_LOADING_MS - elapsed)
+        window.setTimeout(() => setLoading(false), remain)
+      })
   }
 
   return (
@@ -354,30 +353,51 @@ export default function Home() {
                   </TabsList>
                 </Tabs>
               </div>
-              <Button className="w-full h-9" onClick={onGetResults}>
-                {t("get_results")}
+              <Button className="w-full h-9" onClick={onGetResults} disabled={loading}>
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    {t("get_results")}
+                  </span>
+                ) : (
+                  t("get_results")
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("results")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {results ? (
+      {loading && (
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground py-2">
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              <span>{t("loading_message")}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {results && !loading && (
+        <Card>
+          <CardContent>
             <div className="space-y-6">
               {/* Summary */}
               <div>
-                <div className="font-medium mb-2">{t("campaign_results")}</div>
+                <div className="font-medium mb-2">{t("results")}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">{t("available_budget")}</span> {results.summary.budget_available.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</div>
-                  <div><span className="text-muted-foreground">{t("actual_spend")}</span> {results.summary.actual_spend.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽ ({results.summary.actual_spend_percent.toFixed(1)}%)</div>
-                  <div><span className="text-muted-foreground">{t("expected_revenue")}</span> {results.summary.expected_revenue.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</div>
-                  <div><span className="text-muted-foreground">{t("expected_roi")}</span> {results.summary.expected_roi_percent.toFixed(1)}%</div>
-                  <div><span className="text-muted-foreground">{t("reach_clients")}</span> {results.summary.reach_clients.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</div>
+                  <div><span className="text-muted-foreground">{t("available_budget")}</span> {results.summary[0].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</div>
+                  <div><span className="text-muted-foreground">{t("actual_spend")}</span> {results.summary[1].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽ ({results.summary[2].toFixed(1)}%)</div>
+                  <div><span className="text-muted-foreground">{t("expected_revenue")}</span> {results.summary[3].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</div>
+                  <div><span className="text-muted-foreground">{t("expected_roi")}</span> {results.summary[4].toFixed(1)}%</div>
+                  <div><span className="text-muted-foreground">{t("reach_clients")}</span> {results.summary[5].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</div>
                 </div>
               </div>
 
@@ -394,12 +414,12 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.channels_usage.map((c, i) => (
-                      <tr key={i} className="border-t border-border">
-                        <td className="py-1 pr-2">{c.channel_id}</td>
-                        <td className="py-1 pr-2">{c.offers_count.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
-                        <td className="py-1 pr-2">{Math.round(c.total_cost).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
-                        <td className="py-1 pr-2">{Math.round(c.total_revenue).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
+                    {Object.entries(results.channels_usage).map(([id, vals]) => (
+                      <tr key={id} className="border-t border-border">
+                        <td className="py-1 pr-2">{id}</td>
+                        <td className="py-1 pr-2">{vals[0].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
+                        <td className="py-1 pr-2">{Math.round(vals[1]).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
+                        <td className="py-1 pr-2">{Math.round(vals[2]).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
                       </tr>
                     ))}
                   </tbody>
@@ -418,22 +438,20 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.products_distribution.map((p, i) => (
-                      <tr key={i} className="border-t border-border">
-                        <td className="py-1 pr-2">{p.product_id}</td>
-                        <td className="py-1 pr-2">{p.offers_count.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
-                        <td className="py-1 pr-2">{Math.round(p.avg_affinity_revenue).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
+                    {Object.entries(results.products_distribution).map(([id, vals]) => (
+                      <tr key={id} className="border-t border-border">
+                        <td className="py-1 pr-2">{id}</td>
+                        <td className="py-1 pr-2">{vals[0].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
+                        <td className="py-1 pr-2">{Math.round(vals[1]).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("empty_dash")}</p>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

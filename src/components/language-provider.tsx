@@ -9,7 +9,7 @@ type I18nContextType = {
   t: (k: keyof typeof DICT["en"]) => string
 }
 
-const defaultLang: Lang = (typeof window !== "undefined" && (localStorage.getItem("lang") as Lang)) || "en"
+const defaultLang: Lang = "en"
 
 const DICT = {
   en: {
@@ -17,7 +17,7 @@ const DICT = {
     subtitle: "marketing contacts optimization",
     contacts: "Contacts",
     channel: "Channel for communication with clients",
-    amount: "Number of communications",
+    amount: "Max num of communications",
     cost: "Cost (₽)",
     add_channel: "Add channel",
     ltv_title: "LTV",
@@ -44,15 +44,16 @@ const DICT = {
     col_total_revenue: "Total revenue",
     product_distribution: "Product distribution",
     col_product: "Product",
-    col_avg_affinity_revenue: "Avg affinity revenue",
+    col_avg_affinity_revenue: "Average affinity revenue",
     empty_dash: "-",
+    loading_message: "Please, be patient, it may take some time",
   },
   ru: {
     title: "Персональные предложения",
     subtitle: "оптимизация контактов маркетинга",
     contacts: "Контакты",
     channel: "Канал связи с клиентом",
-    amount: "Количество коммуникаций",
+    amount: "Макс кол-во коммуникаций",
     cost: "Цена (₽)",
     add_channel: "Добавить канал связи",
     ltv_title: "LTV",
@@ -70,17 +71,18 @@ const DICT = {
     available_budget: "Доступный бюджет:",
     actual_spend: "Фактические затраты:",
     expected_revenue: "Ожидаемая выручка:",
-    expected_roi: "Ожидаемая ROI:",
+    expected_roi: "Ожидаемый ROI:",
     reach_clients: "Охват (клиенты):",
     channel_usage: "Использование каналов",
-    col_channel: "Канал",
-    col_offers_count: "Количество офферов",
+    col_channel: "Канал связи",
+    col_offers_count: "Количество коммуникаций",
     col_total_cost: "Общая стоимость",
     col_total_revenue: "Общая выручка",
     product_distribution: "Распределение по продуктам",
     col_product: "Продукт",
     col_avg_affinity_revenue: "Средний доход от привлечения клиентов",
     empty_dash: "-",
+    loading_message: "Пожалуйста, проявите терпение, это может занять некоторое время",
   },
 } as const
 
@@ -88,6 +90,16 @@ const I18nContext = createContext<I18nContextType | null>(null)
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>(defaultLang)
+
+  useEffect(() => {
+    // On mount, read persisted language and sync once to avoid SSR/CSR mismatch
+    try {
+      const saved = localStorage.getItem("lang") as Lang | null
+      if (saved && (saved === "en" || saved === "ru")) {
+        setLangState(saved)
+      }
+    } catch {}
+  }, [])
 
   useEffect(() => {
     try {
