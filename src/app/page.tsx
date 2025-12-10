@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Trash2 } from "lucide-react"
+import { useI18n } from "@/components/language-provider"
 
 type ChannelType =
   | "Phone calls"
@@ -22,13 +23,7 @@ type ChannelType =
   | "Social media"
   | "Website banner"
 
-type ProductType =
-  | "Product 1"
-  | "Product 2"
-  | "Product 3"
-  | "Product 4"
-  | "Product 5"
-  | "Product 6"
+type ProductOption = { id: string; label: string }
 
 type ChannelRow = {
   id: string
@@ -39,7 +34,7 @@ type ChannelRow = {
 
 type ProductRow = {
   id: string
-  product?: ProductType
+  product_id?: string
   ltv?: number
 }
 
@@ -52,13 +47,13 @@ const CHANNEL_OPTIONS: ChannelType[] = [
   "Website banner",
 ]
 
-const PRODUCT_OPTIONS: ProductType[] = [
-  "Product 1",
-  "Product 2",
-  "Product 3",
-  "Product 4",
-  "Product 5",
-  "Product 6",
+const PRODUCT_OPTIONS: ProductOption[] = [
+  { id: "product_0", label: "Дебетовая карта" },
+  { id: "product_1", label: "Вклад" },
+  { id: "product_2", label: "Автокредит" },
+  { id: "product_4", label: "Банковская подписка" },
+  { id: "product_5", label: "Кредитная карта" },
+  { id: "product_6", label: "Кредит наличными" },
 ]
 
 type OptimizeResponse = {
@@ -71,7 +66,7 @@ type OptimizeResponse = {
     reach_clients: number
   }
   channels_usage: Array<{
-    canal_id: string
+    channel_id: string
     offers_count: number
     total_cost: number
     total_revenue: number
@@ -84,6 +79,7 @@ type OptimizeResponse = {
 }
 
 export default function Home() {
+  const { t, lang } = useI18n()
   const [channels, setChannels] = useState<ChannelRow[]>([
     { id: crypto.randomUUID(), type: undefined, max: 0, cost: 0 },
     { id: crypto.randomUUID(), type: undefined, max: 0, cost: 0 },
@@ -91,9 +87,9 @@ export default function Home() {
   ])
 
   const [products, setProducts] = useState<ProductRow[]>([
-    { id: crypto.randomUUID(), product: undefined, ltv: 0 },
-    { id: crypto.randomUUID(), product: undefined, ltv: 0 },
-    { id: crypto.randomUUID(), product: undefined, ltv: 0 },
+    { id: crypto.randomUUID(), product_id: undefined, ltv: 0 },
+    { id: crypto.randomUUID(), product_id: undefined, ltv: 0 },
+    { id: crypto.randomUUID(), product_id: undefined, ltv: 0 },
   ])
 
   const [budget, setBudget] = useState<number>(100000)
@@ -108,11 +104,11 @@ export default function Home() {
     CHANNEL_OPTIONS.filter((o) => o === current || !usedChannelTypes.has(o))
 
   const usedProductTypes = useMemo(
-    () => new Set(products.map((p) => p.product).filter(Boolean) as ProductType[]),
+    () => new Set(products.map((p) => p.product_id).filter(Boolean) as string[]),
     [products]
   )
-  const availableProductOptions = (current?: ProductType) =>
-    PRODUCT_OPTIONS.filter((o) => o === current || !usedProductTypes.has(o))
+  const availableProductOptions = (current?: string) =>
+    PRODUCT_OPTIONS.filter((o) => o.id === current || !usedProductTypes.has(o.id))
 
   const updateChannel = (id: string, patch: Partial<ChannelRow>) =>
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
@@ -126,13 +122,37 @@ export default function Home() {
   const removeProduct = (id: string) =>
     setProducts((prev) => prev.filter((p) => p.id !== id))
   const addProduct = () =>
-    setProducts((prev) => [...prev, { id: crypto.randomUUID(), product: undefined, ltv: 0 }])
+    setProducts((prev) => [...prev, { id: crypto.randomUUID(), product_id: undefined, ltv: 0 }])
 
   const onGetResults = () => {
+    const channelCode = (t?: ChannelType): string | undefined => {
+      switch (t) {
+        case "SMS": return "sms"
+        case "Email": return "email"
+        case "Push notifications": return "push"
+        case "Phone calls": return "phone"
+        case "Social media": return "social"
+        case "Website banner": return "web_banner"
+        default: return undefined
+      }
+    }
+    const payloadV2 = {
+      budget,
+      model: model === "model1" ? "catboost" : "lightgbm",
+      channels: channels.map(c => ({
+        channel_id: channelCode(c.type),
+        number: c.max ?? 0,
+        cost_per_contact: c.cost ?? 0,
+      })),
+      products: products.map(p => ({
+        product_id: p.product_id,
+        ltv: p.ltv ?? 0,
+      })),
+    }
     fetch("/api/optimize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ budget, model, channels, products }),
+      body: JSON.stringify(payloadV2),
     })
       .then((r) => r.json())
       .then((data) => setResults(data))
@@ -143,11 +163,11 @@ export default function Home() {
     <div className="grid grid-cols-1 gap-4">
       <div>
         <h1 className="text-3xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Personalized Offers
+          {t("title")}
         </h1>
         <p className="text-muted-foreground mt-1 flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-accent" />
-          marketing contacts optimization
+          {t("subtitle")}
         </p>
       </div>
 
@@ -155,15 +175,15 @@ export default function Home() {
         {/* Contacts */}
         <Card className="lg:col-span-5">
           <CardHeader>
-            <CardTitle>Contacts</CardTitle>
+            <CardTitle>{t("contacts")}</CardTitle>
             <div className="mt-1 h-1 w-10 rounded-full bg-accent" />
           </CardHeader>
           <CardContent className="space-y-3 py-3">
             {/* header row for columns */}
             <div className="hidden sm:grid grid-cols-12 gap-6 text-xs text-muted-foreground font-medium px-0">
-              <div className="sm:col-span-6">Channel</div>
-              <div className="sm:col-span-3">Amount</div>
-              <div className="sm:col-span-2">Cost (₽)</div>
+              <div className="sm:col-span-6">{t("channel")}</div>
+              <div className="sm:col-span-3">{t("amount")}</div>
+              <div className="sm:col-span-2">{t("cost")}</div>
               <div className="sm:col-span-1" />
             </div>
 
@@ -223,7 +243,7 @@ export default function Home() {
             ))}
             <div className="pt-1">
               <Button variant="secondary" className="h-9 w-full" onClick={addChannel}>
-                + Add channel
+                {t("add_channel")}
               </Button>
             </div>
           </CardContent>
@@ -232,30 +252,30 @@ export default function Home() {
         {/* LTV */}
         <Card className="lg:col-span-4">
           <CardHeader>
-            <CardTitle>LTV</CardTitle>
+            <CardTitle>{t("ltv_title")}</CardTitle>
             <div className="mt-1 h-1 w-10 rounded-full bg-accent" />
           </CardHeader>
           <CardContent className="space-y-3 py-3">
             {/* header row for columns */}
             <div className="hidden sm:grid grid-cols-12 gap-4 text-xs text-muted-foreground font-medium px-0">
-              <div className="sm:col-span-7">Product</div>
-              <div className="sm:col-span-4">LTV (₽)</div>
+              <div className="sm:col-span-7">{t("product")}</div>
+              <div className="sm:col-span-4">{t("ltv_label")}</div>
             </div>
 
             {products.map((row) => (
               <div key={row.id} className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                 <div className="sm:col-span-7">
                   <Select
-                    value={row.product}
-                    onValueChange={(v: ProductType) => updateProduct(row.id, { product: v })}
+                    value={row.product_id}
+                    onValueChange={(v: string) => updateProduct(row.id, { product_id: v })}
                   >
                     <SelectTrigger className="h-9 w-full min-w-[200px]" aria-label="Product">
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableProductOptions(row.product).map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
+                      {availableProductOptions(row.product_id).map((opt) => (
+                        <SelectItem key={opt.id} value={opt.id}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -286,7 +306,7 @@ export default function Home() {
             ))}
             <div className="pt-1">
               <Button variant="secondary" className="h-9 w-full" onClick={addProduct}>
-                + Add product
+                {t("add_product")}
               </Button>
             </div>
           </CardContent>
@@ -295,13 +315,13 @@ export default function Home() {
         {/* Settings */}
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Settings</CardTitle>
+            <CardTitle>{t("settings")}</CardTitle>
             <div className="mt-1 h-1 w-10 rounded-full bg-accent" />
           </CardHeader>
           <CardContent className="space-y-3 py-3">
             <div className="grid grid-cols-1 gap-3">
               <div className="space-y-1.5">
-                <Label>Budget</Label>
+                <Label>{t("budget")}</Label>
                 <Input
                   className="h-9 w-full"
                   placeholder="100000"
@@ -312,7 +332,7 @@ export default function Home() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Which model?</Label>
+                <Label>{t("which_model")}</Label>
                 <Tabs
                   value={model}
                   onValueChange={(v) => setModel(v as "model1" | "model2")}
@@ -323,19 +343,19 @@ export default function Home() {
                       value="model1"
                       className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                     >
-                      Model 1
+                      {t("model1")}
                     </TabsTrigger>
                     <TabsTrigger
                       value="model2"
                       className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                     >
-                      Model 2
+                      {t("model2")}
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
               <Button className="w-full h-9" onClick={onGetResults}>
-                Get results
+                {t("get_results")}
               </Button>
             </div>
           </CardContent>
@@ -344,42 +364,42 @@ export default function Home() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Results</CardTitle>
+          <CardTitle>{t("results")}</CardTitle>
         </CardHeader>
         <CardContent>
           {results ? (
             <div className="space-y-6">
               {/* Summary */}
               <div>
-                <div className="font-medium mb-2">Campaign results</div>
+                <div className="font-medium mb-2">{t("campaign_results")}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">Available budget:</span> {results.summary.budget_available.toLocaleString("ru-RU")} ₽</div>
-                  <div><span className="text-muted-foreground">Actual spend:</span> {results.summary.actual_spend.toLocaleString("ru-RU")} ₽ ({results.summary.actual_spend_percent.toFixed(1)}%)</div>
-                  <div><span className="text-muted-foreground">Expected revenue:</span> {results.summary.expected_revenue.toLocaleString("ru-RU")} ₽</div>
-                  <div><span className="text-muted-foreground">Expected ROI:</span> {results.summary.expected_roi_percent.toFixed(1)}%</div>
-                  <div><span className="text-muted-foreground">Reach (clients):</span> {results.summary.reach_clients.toLocaleString("ru-RU")}</div>
+                  <div><span className="text-muted-foreground">{t("available_budget")}</span> {results.summary.budget_available.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</div>
+                  <div><span className="text-muted-foreground">{t("actual_spend")}</span> {results.summary.actual_spend.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽ ({results.summary.actual_spend_percent.toFixed(1)}%)</div>
+                  <div><span className="text-muted-foreground">{t("expected_revenue")}</span> {results.summary.expected_revenue.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</div>
+                  <div><span className="text-muted-foreground">{t("expected_roi")}</span> {results.summary.expected_roi_percent.toFixed(1)}%</div>
+                  <div><span className="text-muted-foreground">{t("reach_clients")}</span> {results.summary.reach_clients.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</div>
                 </div>
               </div>
 
               {/* Channels usage */}
               <div className="overflow-x-auto">
-                <div className="font-medium mb-2">Channel usage</div>
+                <div className="font-medium mb-2">{t("channel_usage")}</div>
                 <table className="w-full text-sm">
                   <thead className="text-muted-foreground">
                     <tr className="text-left">
-                      <th className="py-1 pr-2">Channel</th>
-                      <th className="py-1 pr-2">Offers count</th>
-                      <th className="py-1 pr-2">Total cost</th>
-                      <th className="py-1 pr-2">Total revenue</th>
+                      <th className="py-1 pr-2">{t("col_channel")}</th>
+                      <th className="py-1 pr-2">{t("col_offers_count")}</th>
+                      <th className="py-1 pr-2">{t("col_total_cost")}</th>
+                      <th className="py-1 pr-2">{t("col_total_revenue")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {results.channels_usage.map((c, i) => (
                       <tr key={i} className="border-t border-border">
-                        <td className="py-1 pr-2">{c.canal_id}</td>
-                        <td className="py-1 pr-2">{c.offers_count.toLocaleString("ru-RU")}</td>
-                        <td className="py-1 pr-2">{Math.round(c.total_cost).toLocaleString("ru-RU")} ₽</td>
-                        <td className="py-1 pr-2">{Math.round(c.total_revenue).toLocaleString("ru-RU")} ₽</td>
+                        <td className="py-1 pr-2">{c.channel_id}</td>
+                        <td className="py-1 pr-2">{c.offers_count.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
+                        <td className="py-1 pr-2">{Math.round(c.total_cost).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
+                        <td className="py-1 pr-2">{Math.round(c.total_revenue).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
                       </tr>
                     ))}
                   </tbody>
@@ -388,21 +408,21 @@ export default function Home() {
 
               {/* Products distribution */}
               <div className="overflow-x-auto">
-                <div className="font-medium mb-2">Product distribution</div>
+                <div className="font-medium mb-2">{t("product_distribution")}</div>
                 <table className="w-full text-sm">
                   <thead className="text-muted-foreground">
                     <tr className="text-left">
-                      <th className="py-1 pr-2">Product</th>
-                      <th className="py-1 pr-2">Offers count</th>
-                      <th className="py-1 pr-2">Avg affinity revenue</th>
+                      <th className="py-1 pr-2">{t("col_product")}</th>
+                      <th className="py-1 pr-2">{t("col_offers_count")}</th>
+                      <th className="py-1 pr-2">{t("col_avg_affinity_revenue")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {results.products_distribution.map((p, i) => (
                       <tr key={i} className="border-t border-border">
                         <td className="py-1 pr-2">{p.product_id}</td>
-                        <td className="py-1 pr-2">{p.offers_count.toLocaleString("ru-RU")}</td>
-                        <td className="py-1 pr-2">{Math.round(p.avg_affinity_revenue).toLocaleString("ru-RU")} ₽</td>
+                        <td className="py-1 pr-2">{p.offers_count.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
+                        <td className="py-1 pr-2">{Math.round(p.avg_affinity_revenue).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
                       </tr>
                     ))}
                   </tbody>
@@ -410,7 +430,7 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">-</p>
+            <p className="text-sm text-muted-foreground">{t("empty_dash")}</p>
           )}
         </CardContent>
       </Card>

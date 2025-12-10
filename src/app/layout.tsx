@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageProvider } from "@/components/language-provider";
+import { LanguageToggle } from "@/components/language-toggle";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,12 +32,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}>
-        <ThemeProvider>
-          <div className="relative min-h-screen bg-background text-foreground overflow-hidden">
-            {/* Floating theme toggle in top-right */}
-            <div className="fixed top-3 right-3 z-50">
-              <ThemeToggle />
-            </div>
+        <LanguageProvider>
+          <ThemeProvider>
+            <div className="relative min-h-screen bg-background text-foreground overflow-hidden">
+              {/* Floating toggles in top-right */}
+              <div className="fixed top-3 right-3 z-50 flex items-center gap-2">
+                <LanguageToggle />
+                <ThemeToggle />
+              </div>
             {/* Hero ribbon */}
             <div
               aria-hidden
@@ -44,8 +48,9 @@ export default function RootLayout({
             <main className="mx-auto max-w-8xl px-3 py-3">
               {children}
             </main>
-          </div>
-        </ThemeProvider>
+            </div>
+          </ThemeProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

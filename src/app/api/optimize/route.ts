@@ -1,24 +1,35 @@
+// Accept both v1 and v2 formats
 export type OptimizeRequest = {
-  budget: number;
-  model: "model1" | "model2";
-  channels: Array<{ type?: string; max?: number; cost?: number }>;
-  products: Array<{ product?: string; ltv?: number }>;
+  budget?: number;
+  model?: string; // "model1"|"model2" or "1"|"2" or "catboost"|"lightgbm"
+  // v1 channels
+  channels?: Array<{ type?: string; max?: number; cost?: number }> |
+             Array<{ channel_id?: string; number?: number; cost_per_contact?: number }>;
+  // v1 products
+  products?: Array<{ product?: string; ltv?: number }> |
+             Array<{ product_id?: string; ltv?: number }>;
 };
 
+// Response follows v2 used by frontend
 export type OptimizeResponse = {
-  kpi: {
-    expectedProfit: number;
-    spend: number;
-    roi: number;
-    expectedConversions: number;
+  summary: {
+    budget_available: number;
+    actual_spend: number;
+    actual_spend_percent: number;
+    expected_revenue: number;
+    expected_roi_percent: number;
+    reach_clients: number;
   };
-  channels: Array<{
-    type: string;
-    planned: number;
-    spend: number;
-    expectedResponseRate: number;
-    cpt: number;
-    profit: number;
+  channels_usage: Array<{
+    channel_id: string;
+    offers_count: number;
+    total_cost: number;
+    total_revenue: number;
+  }>;
+  products_distribution: Array<{
+    product_id: string;
+    offers_count: number;
+    avg_affinity_revenue: number;
   }>;
 };
 
@@ -46,12 +57,32 @@ export async function POST(req: Request) {
     }
   }
   const budget = Number(body?.budget ?? 0) || 0;
-  const model = (body?.model === "model1" || body?.model === "model2") ? body.model : "model1";
-  const channels = Array.isArray(body?.channels) ? body.channels : [];
-  const products = Array.isArray(body?.products) ? body.products : [];
+  const modelRaw = String(body?.model ?? "model1").toLowerCase();
+  const model =
+    modelRaw === "2" || modelRaw === "model2" || modelRaw === "lightgbm"
+      ? "model2"
+      : "model1"; // treat catboost as model1
+
+  const channelsIn = Array.isArray(body?.channels) ? (body.channels as any[]) : [];
+  const productsIn = Array.isArray(body?.products) ? (body.products as any[]) : [];
+
+  // normalize channels (v1: type/max/cost) or (v2: channel_id/number/cost_per_contact)
+  const normChannels = channelsIn.map((ch) => {
+    const channel_id = (ch?.channel_id ?? ch?.type ?? "Unknown") as string;
+    const number = Number(ch?.number ?? ch?.max ?? 0) || 0;
+    const cost_per_contact = Number(ch?.cost_per_contact ?? ch?.cost ?? 0) || 0;
+    return { channel_id, number, cost_per_contact };
+  });
+
+  // normalize products (v1: product, v2: product_id)
+  const normProducts = productsIn.map((p, idx) => {
+    const product_id = (p?.product_id ?? p?.product ?? `product_${idx}`) as string;
+    const ltv = Number(p?.ltv ?? 0) || 0;
+    return { product_id, ltv };
+  });
 
   const avgLtv = (() => {
-    const vals = products.map(p => Number(p?.ltv ?? 0)).filter(v => Number.isFinite(v) && v > 0);
+    const vals = normProducts.map(p => Number(p?.ltv ?? 0)).filter(v => Number.isFinite(v) && v > 0);
     if (!vals.length) return 0;
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   })();
@@ -59,10 +90,10 @@ export async function POST(req: Request) {
   let remaining = budget;
   const rateBase = model === "model1" ? 0.02 : 0.018;
 
-  const perChannel = channels.map(ch => {
-    const type = ch?.type || "Unknown";
-    const cost = Number(ch?.cost ?? 0);
-    const max = Math.max(0, Math.floor(Number(ch?.max ?? 0)));
+  const perChannel = normChannels.map(ch => {
+    const type = ch?.channel_id || "Unknown";
+    const cost = Number(ch?.cost_per_contact ?? 0);
+    const max = Math.max(0, Math.floor(Number(ch?.number ?? 0)));
     let planned = 0;
     if (cost > 0 && remaining > 0) {
       const affordable = Math.floor(remaining / cost);
@@ -94,15 +125,15 @@ export async function POST(req: Request) {
   };
 
   const channels_usage = perChannel.map((c) => ({
-    canal_id: c.type,
+    channel_id: c.type,
     offers_count: c.planned,
     total_cost: c.spend,
     total_revenue: c.planned * c.expectedResponseRate * avgLtv,
   }));
 
-  const products_distribution = (products || []).map((p, idx) => ({
-    product_id: p?.product ?? `product_${idx}`,
-    offers_count: Math.round((expectedConversions / Math.max(products.length, 1)) || 0),
+  const products_distribution = (normProducts || []).map((p, idx) => ({
+    product_id: p?.product_id ?? `product_${idx}`,
+    offers_count: Math.round((expectedConversions / Math.max(normProducts.length, 1)) || 0),
     avg_affinity_revenue: Number(p?.ltv ?? 0),
   }));
 
