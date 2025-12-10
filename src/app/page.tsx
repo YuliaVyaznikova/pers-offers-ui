@@ -91,6 +91,21 @@ export default function Home() {
   const availableChannelOptions = (current?: ChannelType) =>
     CHANNEL_OPTIONS.filter((o) => o === current || !usedChannelTypes.has(o))
 
+  const channelLabel = (opt: ChannelType) => {
+    if (lang === "ru") {
+      switch (opt) {
+        case "Phone calls": return "Телефонные звонки"
+        case "SMS": return "SMS-рассылка"
+        case "Email": return "Email-рассылка"
+        case "Push notifications": return "Push-уведомления"
+        case "Website banner": return "Баннер на сайте"
+        case "Social media": return "Реклама в соцсетях"
+        default: return opt
+      }
+    }
+    return opt
+  }
+
   const usedProductTypes = useMemo(
     () => new Set(products.map((p) => p.product_id).filter(Boolean) as string[]),
     [products]
@@ -194,12 +209,12 @@ export default function Home() {
                     onValueChange={(v: ChannelType) => updateChannel(row.id, { type: v })}
                   >
                     <SelectTrigger className="h-9 w-full min-w-[176px]" aria-label="Channel">
-                      <SelectValue placeholder="Select channel" />
+                      <SelectValue placeholder={t("select_channel")} />
                     </SelectTrigger>
                     <SelectContent>
                       {availableChannelOptions(row.type).map((opt) => (
                         <SelectItem key={opt} value={opt}>
-                          {opt}
+                          {channelLabel(opt)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -269,12 +284,19 @@ export default function Home() {
                     onValueChange={(v: string) => updateProduct(row.id, { product_id: v })}
                   >
                     <SelectTrigger className="h-9 w-full min-w-[200px]" aria-label="Product">
-                      <SelectValue placeholder="Select product" />
+                      <SelectValue placeholder={t("select_product")} />
                     </SelectTrigger>
                     <SelectContent>
                       {availableProductOptions(row.product_id).map((opt) => (
                         <SelectItem key={opt.id} value={opt.id}>
-                          {opt.label}
+                          {lang === "en" ?
+                            (opt.id === "debit_card" ? "Debit card" :
+                             opt.id === "deposit" ? "Deposit" :
+                             opt.id === "auto_loan" ? "Car loan" :
+                             opt.id === "bank_subscription" ? "Bank subscription" :
+                             opt.id === "credit_card" ? "Credit card" :
+                             opt.id === "cash_loan" ? "Cash loan" : opt.label)
+                           : opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

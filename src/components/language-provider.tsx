@@ -24,6 +24,8 @@ const DICT = {
     product: "Product",
     ltv_label: "LTV (₽)",
     add_product: "Add product",
+    select_channel: "Select channel",
+    select_product: "Select product",
     settings: "Settings",
     budget: "Budget",
     which_model: "Model selection",
@@ -83,6 +85,8 @@ const DICT = {
     col_avg_affinity_revenue: "Средний доход от привлечения клиентов",
     empty_dash: "-",
     loading_message: "Пожалуйста, проявите терпение, это может занять некоторое время",
+    select_channel: "Выбрать канал",
+    select_product: "Выбрать продукт",
   },
 } as const
 
