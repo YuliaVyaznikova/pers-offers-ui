@@ -28,13 +28,104 @@ export type OptimizeResponse = {
 export async function POST(req: Request) {
   const body = (await req.json()) as OptimizeRequest;
 
+  // Normalize numbers coming from UI (e.g. "0,59" -> 0.59) and coerce types
+  const toNum = (v: any): number => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string") {
+      const s = v.replace(/,/g, ".").trim();
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  };
+
+  const normalizeBody = (raw: any) => {
+    const out: any = { ...raw };
+    if (raw && Object.prototype.hasOwnProperty.call(raw, "budget")) out.budget = toNum(raw.budget);
+    if (typeof raw?.advanced === "string") out.advanced = raw.advanced === "true";
+    if (typeof raw?.enable_rr === "string") out.enable_rr = raw.enable_rr === "true";
+    const enableRR = Boolean(out.enable_rr ?? raw?.enable_rr);
+
+    // channels as array of objects
+    if (Array.isArray(raw?.channels)) {
+      out.channels = raw.channels.map((c: any) => ({
+        ...c,
+        max: toNum(c?.max ?? c?.number),
+        number: toNum(c?.number ?? c?.max),
+        cost: toNum(c?.cost ?? c?.cost_per_contact),
+        cost_per_contact: toNum(c?.cost_per_contact ?? c?.cost),
+      }));
+    }
+
+    // channels as map -> arrays [max, cost] or [max, cost, rr]
+    if (raw && typeof raw.channels === "object" && !Array.isArray(raw.channels)) {
+      const m: Record<string, any> = {};
+      for (const [k, v] of Object.entries(raw.channels as Record<string, any>)) {
+        const arr = Array.isArray(v) ? v : [];
+        if (arr.length >= 3) m[k] = [toNum(arr[0]), toNum(arr[1]), toNum(arr[2])];
+        else if (arr.length >= 2) m[k] = enableRR ? [toNum(arr[0]), toNum(arr[1]), 0] : [toNum(arr[0]), toNum(arr[1])];
+        else m[k] = [0, 0];
+      }
+      out.channels = m;
+    }
+
+    // channels_map fallback
+    if (raw?.channels_map && typeof raw.channels_map === "object") {
+      const m: Record<string, [number, number]> = {};
+      for (const [k, v] of Object.entries(raw.channels_map as Record<string, any>)) {
+        const arr = Array.isArray(v) ? v : [];
+        m[k] = [toNum(arr[0]), toNum(arr[1])];
+      }
+      out.channels_map = m;
+    }
+
+    // products as array
+    if (Array.isArray(raw?.products)) {
+      out.products = raw.products.map((p: any, idx: number) => ({
+        ...p,
+        ltv: toNum(p?.ltv),
+        product_id: p?.product_id ?? p?.product ?? `product_${idx}`,
+      }));
+    }
+
+    // products as map
+    if (raw && typeof raw.products === "object" && !Array.isArray(raw.products)) {
+      const m: Record<string, number> = {};
+      for (const [k, v] of Object.entries(raw.products as Record<string, any>)) {
+        m[k] = toNum(v);
+      }
+      out.products = m;
+    }
+
+    if (raw?.products_map && typeof raw.products_map === "object") {
+      const m: Record<string, number> = {};
+      for (const [k, v] of Object.entries(raw.products_map as Record<string, any>)) {
+        m[k] = toNum(v);
+      }
+      out.products_map = m;
+    }
+
+    // If enable_rr is true but some tuples still have length 2, append rr=0 defensively
+    if (enableRR && out?.channels && typeof out.channels === "object" && !Array.isArray(out.channels)) {
+      for (const [k, v] of Object.entries(out.channels as Record<string, any>)) {
+        if (Array.isArray(v) && v.length === 2) {
+          (out.channels as any)[k] = [toNum(v[0]), toNum(v[1]), 0];
+        }
+      }
+    }
+
+    return out;
+  };
+
+  const normalized = normalizeBody(body as any);
+
   const base = process.env.PY_BACKEND_URL?.trim();
   if (base) {
     try {
       const resp = await fetch(base.replace(/\/$/, "") + "/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(normalized),
       });
       const txt = await resp.text();
       return new Response(txt, {
@@ -57,8 +148,8 @@ export async function POST(req: Request) {
     }
   } catch {}
   }
-  const budget = Number(body?.budget ?? 0) || 0;
-  const modelRaw = String(body?.model ?? "model1").toLowerCase();
+  const budget = Number(normalized?.budget ?? 0) || 0;
+  const modelRaw = String(normalized?.model ?? "model1").toLowerCase();
   const model =
     modelRaw === "2" || modelRaw === "model2" || modelRaw === "lightgbm"
       ? "model2"
@@ -101,6 +192,34 @@ export async function POST(req: Request) {
   }
 
   // normChannels and normProducts are ready
+
+  // Early validation to avoid heavy compute
+  const messages: string[] = []
+  if (!Number.isFinite(budget) || budget < 0) messages.push("Budget must be a non-negative number")
+  if (!normChannels.length) messages.push("At least one channel must be provided")
+  if (!normProducts.length) messages.push("At least one product with LTV must be provided")
+  const anyInvalid = [
+    ...normChannels.map(c => [c.number, c.cost_per_contact]).flat(),
+    ...normProducts.map(p => [p.ltv]).flat(),
+  ].some(v => !Number.isFinite(Number(v)) || Number(v) < 0)
+  if (anyInvalid) messages.push("All numeric fields must be valid non-negative numbers")
+  const minCost = (() => {
+    const costs = normChannels.map(c => Number(c.cost_per_contact || 0)).filter(v => v > 0)
+    return costs.length ? Math.min(...costs) : 0
+  })()
+  if (minCost > 0 && budget > 0 && budget < minCost) {
+    messages.push(`Budget is too small. Minimum feasible is >= ${Math.round(minCost)}`)
+  }
+  const required = normChannels.reduce((sum, c) => sum + Math.max(0, Math.floor(Number(c.number || 0))) * Math.max(0, Number(c.cost_per_contact || 0)), 0)
+  if (required > 0 && budget > 0 && budget < required) {
+    messages.push(`Budget appears lower than required for the planned volume (≈ ${Math.round(required)}). Consider raising it or reducing volumes`)
+  }
+  if (messages.length) {
+    return new Response(JSON.stringify({ error: "validation_failed", messages }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
 
   const avgLtv = (() => {
     const vals = normProducts.map(p => Number(p?.ltv ?? 0)).filter(v => Number.isFinite(v) && v > 0);
