@@ -267,6 +267,15 @@ export default function Home() {
     if (selectedChannels.length === 0) msgs.push(t("err_no_channels"))
     if (selectedProducts.length === 0) msgs.push(t("err_no_products"))
     if (numInvalid) msgs.push(t("err_invalid_numbers"))
+    // completeness: all required fields must be filled
+    const anyMissingChannelFields = selectedChannels.some(c => (
+      c.max === undefined || c.cost === undefined || (enableRR && (c.response_rate === undefined || Number.isNaN(Number(c.response_rate))))
+    ))
+    const anyMissingProductFields = selectedProducts.some(p => p.ltv === undefined)
+    const missingBudget = budget === undefined || Number.isNaN(Number(budget))
+    if (anyMissingChannelFields || anyMissingProductFields || missingBudget) {
+      msgs.push(t("err_all_fields_required"))
+    }
     // budget checks
     const costs = selectedChannels.map(c => Number(c.cost ?? 0)).filter(v => v > 0)
     const minCost = costs.length ? Math.min(...costs) : 0
@@ -777,9 +786,28 @@ export default function Home() {
                     t("get_results")
                   )}
                 </Button>
-                <Button variant="secondary" className="h-9 w-full" onClick={onDownloadCsv}>
-                  {lang === 'ru' ? 'Скачать полный отчёт' : 'Download full report'}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className={`inline-block w-full ${(!results || loading) ? 'cursor-not-allowed' : ''}`}>
+                        <Button
+                          variant="secondary"
+                          className={`h-9 w-full ${(!results || loading) ? 'cursor-not-allowed' : ''}`}
+                          onClick={onDownloadCsv}
+                          disabled={!results || loading}
+                          aria-disabled={!results || loading}
+                        >
+                          {lang === 'ru' ? 'Скачать полный отчёт' : 'Download full report'}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {(!results || loading) && (
+                      <TooltipContent side="top">
+                        {lang === 'ru' ? 'Сначала получите результаты' : 'Get results first'}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           </CardContent>
