@@ -129,12 +129,56 @@ export default function Home() {
     return opt
   }
 
+  // Localized label by backend channel id ("sms", "email", "push", "phone", "social", "web_banner")
+  const channelLabelById = (id: string) => {
+    const idNorm = (id || '').toLowerCase()
+    if (lang === 'ru') {
+      switch (idNorm) {
+        case 'sms': return 'SMS-рассылка'
+        case 'email': return 'Email-рассылка'
+        case 'push': return 'Push-уведомления'
+        case 'phone': return 'Телефонные звонки'
+        case 'social': return 'Реклама в соцсетях'
+        case 'web_banner': return 'Баннер на сайте'
+        default: return id
+      }
+    }
+    // EN
+    switch (idNorm) {
+      case 'sms': return 'SMS'
+      case 'email': return 'Email'
+      case 'push': return 'Push notifications'
+      case 'phone': return 'Phone calls'
+      case 'social': return 'Social media'
+      case 'web_banner': return 'Website banner'
+      default: return id
+    }
+  }
+
   const usedProductTypes = useMemo(
     () => new Set(products.map((p) => p.product_id).filter(Boolean) as string[]),
     [products]
   )
   const availableProductOptions = (current?: string) =>
     PRODUCT_OPTIONS.filter((o) => o.id === current || !usedProductTypes.has(o.id))
+
+  // Localized product label by backend product id
+  const productLabelById = (id: string) => {
+    if (lang === 'ru') {
+      const found = PRODUCT_OPTIONS.find(o => o.id === id)
+      return found ? found.label : id
+    }
+    // EN mapping
+    switch (id) {
+      case 'debit_card': return 'Debit card'
+      case 'deposit': return 'Deposit'
+      case 'auto_loan': return 'Car loan'
+      case 'bank_subscription': return 'Bank subscription'
+      case 'credit_card': return 'Credit card'
+      case 'cash_loan': return 'Cash loan'
+      default: return id
+    }
+  }
 
   const updateChannel = (id: string, patch: Partial<ChannelRow>) =>
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
@@ -726,7 +770,7 @@ export default function Home() {
                   <tbody>
                     {Object.entries(results.channels_usage).map(([id, vals]) => (
                       <tr key={id} className="border-t border-border">
-                        <td className="py-1 pr-2">{id}</td>
+                        <td className="py-1 pr-2">{channelLabelById(id)}</td>
                         <td className="py-1 pr-2">{vals[0].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
                         <td className="py-1 pr-2">{Math.round(vals[1]).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
                         <td className="py-1 pr-2">{Math.round(vals[2]).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
@@ -750,7 +794,7 @@ export default function Home() {
                   <tbody>
                     {Object.entries(results.products_distribution).map(([id, vals]) => (
                       <tr key={id} className="border-t border-border">
-                        <td className="py-1 pr-2">{id}</td>
+                        <td className="py-1 pr-2">{productLabelById(id)}</td>
                         <td className="py-1 pr-2">{vals[0].toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</td>
                         <td className="py-1 pr-2">{Math.round(vals[1]).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽</td>
                       </tr>
