@@ -359,7 +359,7 @@ export default function Home() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className={`grid grid-cols-1 gap-4 ${loading ? 'cursor-progress' : ''}`}>
       <div>
         <h1 className="text-3xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
           {t("title")}
@@ -774,17 +774,7 @@ export default function Home() {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button className="h-9 w-full" onClick={onGetResults} disabled={loading}>
-                  {loading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                      </svg>
-                      {t("get_results")}
-                    </span>
-                  ) : (
-                    t("get_results")
-                  )}
+                  {t("get_results")}
                 </Button>
                 <TooltipProvider>
                   <Tooltip>
@@ -797,7 +787,7 @@ export default function Home() {
                           disabled={!results || loading}
                           aria-disabled={!results || loading}
                         >
-                          {lang === 'ru' ? 'Скачать полный отчёт' : 'Download full report'}
+                          {t('download_report')}
                         </Button>
                       </span>
                     </TooltipTrigger>
