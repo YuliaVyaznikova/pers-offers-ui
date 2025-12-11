@@ -305,14 +305,19 @@ export default function Home() {
                     type="number"
                     min={0}
                     lang="en"
-                    onKeyDown={preventInvalidNumberKey}
+                    onKeyDown={(e) => {
+                      // amount must be integer: block '.', ',', exp, signs
+                      const k = e.key
+                      if (k === '.' || k === ',' || k === '-' || k === '+' || k === 'e' || k === 'E') e.preventDefault()
+                    }}
                     onPaste={preventInvalidPaste}
                     onFocus={(e) => (e.currentTarget as HTMLInputElement).select()}
                     value={row.max ?? ""}
                     onChange={(e) => {
                       const s = e.target.value
                       if (s === '') return updateChannel(row.id, { max: undefined })
-                      const n = Number(s.replace(',', '.'))
+                      // coerce to integer
+                      const n = Math.floor(Number(String(s).replace(/[^0-9]/g, '')))
                       updateChannel(row.id, { max: Number.isFinite(n) ? n : undefined })
                     }}
                     placeholder="0"
@@ -356,19 +361,14 @@ export default function Home() {
                           setTemp(row.id, 'rr', undefined)
                           return updateChannel(row.id, { response_rate: undefined })
                         }
-                        // allow partial decimal like '0.'
+                        // allow arbitrary decimals with '.' during typing
                         if (/^\d*(?:\.)?\d*$/.test(s)) {
-                          if (s.endsWith('.')) {
-                            setTemp(row.id, 'rr', s)
-                          } else {
-                            const n = Number(s)
-                            if (Number.isFinite(n)) {
-                              const clamped = Math.min(1, Math.max(0, n))
-                              updateChannel(row.id, { response_rate: clamped })
-                              setTemp(row.id, 'rr', undefined)
-                            } else {
-                              setTemp(row.id, 'rr', s)
-                            }
+                          setTemp(row.id, 'rr', s)
+                          const n = Number(s)
+                          if (s === '.' || s.endsWith('.')) return
+                          if (Number.isFinite(n)) {
+                            const clamped = Math.min(1, Math.max(0, n))
+                            updateChannel(row.id, { response_rate: clamped })
                           }
                         }
                       }}
@@ -424,16 +424,11 @@ export default function Home() {
                         return updateChannel(row.id, { cost: undefined })
                       }
                       if (/^\d*(?:\.)?\d*$/.test(s)) {
-                        if (s.endsWith('.')) {
-                          setTemp(row.id, 'cost', s)
-                        } else {
-                          const n = Number(s)
-                          if (Number.isFinite(n)) {
-                            updateChannel(row.id, { cost: n })
-                            setTemp(row.id, 'cost', undefined)
-                          } else {
-                            setTemp(row.id, 'cost', s)
-                          }
+                        setTemp(row.id, 'cost', s)
+                        if (s === '.' || s.endsWith('.')) return
+                        const n = Number(s)
+                        if (Number.isFinite(n)) {
+                          updateChannel(row.id, { cost: n })
                         }
                       }
                     }}
