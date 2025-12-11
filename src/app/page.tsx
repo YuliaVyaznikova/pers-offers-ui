@@ -75,6 +75,62 @@ export default function Home() {
       e.preventDefault()
     }
   }
+  const onDownloadCsv = async () => {
+    try {
+      const selectedChannels = channels.filter(c => !!c.type)
+      const selectedProducts = products.filter(p => !!p.product_id)
+      const bud = Number(budget ?? 0)
+      const channelCode = (t?: ChannelType): string | undefined => {
+        switch (t) {
+          case "SMS": return "sms"
+          case "Email": return "email"
+          case "Push notifications": return "push"
+          case "Phone calls": return "phone"
+          case "Social media": return "social"
+          case "Website banner": return "web_banner"
+          default: return undefined
+        }
+      }
+      const channelsMap = Object.fromEntries(
+        selectedChannels
+          .map(c => {
+            const key = channelCode(c.type)
+            if (!key) return [undefined, undefined]
+            const hasRR = enableRR && typeof c.response_rate === 'number' && !Number.isNaN(c.response_rate)
+            const tuple = hasRR ? [c.max ?? 0, c.cost ?? 0, c.response_rate] : [c.max ?? 0, c.cost ?? 0]
+            return [key, tuple]
+          })
+          .filter(([k]) => !!k)
+      ) as Record<string, number[]>
+      const productsMap = Object.fromEntries(
+        selectedProducts.map(p => [p.product_id, p.ltv ?? 0]).filter(([k]) => !!k)
+      ) as Record<string, number>
+      const payloadV2 = {
+        budget: bud,
+        model: model,
+        advanced,
+        enable_rr: enableRR,
+        channels: channelsMap,
+        products: productsMap,
+      }
+      const resp = await fetch('/api/optimize/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadV2),
+      })
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'offers.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error(e)
+    }
+  }
   const preventInvalidPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     const text = e.clipboardData.getData('text')
     if (text.includes('-') || text.includes('+') || /e/i.test(text) || text.includes(',')) {
@@ -707,19 +763,24 @@ export default function Home() {
                   </ul>
                 </div>
               )}
-              <Button className="w-full h-9" onClick={onGetResults} disabled={loading}>
-                {loading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                    </svg>
-                    {t("get_results")}
-                  </span>
-                ) : (
-                  t("get_results")
-                )}
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button className="h-9 w-full" onClick={onGetResults} disabled={loading}>
+                  {loading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                      </svg>
+                      {t("get_results")}
+                    </span>
+                  ) : (
+                    t("get_results")
+                  )}
+                </Button>
+                <Button variant="secondary" className="h-9 w-full" onClick={onDownloadCsv}>
+                  {lang === 'ru' ? 'Скачать полный отчёт' : 'Download full report'}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
