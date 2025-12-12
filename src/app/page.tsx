@@ -140,15 +140,15 @@ export default function Home() {
     }
   }
   const [channels, setChannels] = useState<ChannelRow[]>([
-    { id: crypto.randomUUID(), type: undefined, max: undefined, cost: undefined },
-    { id: crypto.randomUUID(), type: undefined, max: undefined, cost: undefined },
-    { id: crypto.randomUUID(), type: undefined, max: undefined, cost: undefined },
+    { id: crypto.randomUUID(), type: "Phone calls", max: 3000, cost: 4.5 },
+    { id: crypto.randomUUID(), type: "SMS", max: 4000, cost: 3.4 },
+    { id: crypto.randomUUID(), type: "Push notifications", max: 5000, cost: 1.1 },
   ])
 
   const [products, setProducts] = useState<ProductRow[]>([
-    { id: crypto.randomUUID(), product_id: undefined, ltv: undefined },
-    { id: crypto.randomUUID(), product_id: undefined, ltv: undefined },
-    { id: crypto.randomUUID(), product_id: undefined, ltv: undefined },
+    { id: crypto.randomUUID(), product_id: "debit_card", ltv: 16000 },
+    { id: crypto.randomUUID(), product_id: "deposit", ltv: 21000 },
+    { id: crypto.randomUUID(), product_id: "credit_card", ltv: 20000 },
   ])
 
   const [budget, setBudget] = useState<number | undefined>(100000)
