@@ -1,5 +1,5 @@
 "use client"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -164,6 +164,30 @@ export default function Home() {
   const [tempInputs, setTempInputs] = useState<Record<string, { cost?: string; rr?: string }>>({})
   const setTemp = (id: string, field: 'cost' | 'rr', val?: string) =>
     setTempInputs(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [field]: val } }))
+
+  // Default RR values aligned with backend defaults
+  const defaultRRByType = (t?: ChannelType): number | undefined => {
+    switch (t) {
+      case "SMS": return 0.15
+      case "Push notifications": return 0.15
+      case "Phone calls": return 0.05
+      case "Email": return 0.025
+      case "Social media": return 0.025
+      case "Website banner": return 0.025
+      default: return undefined
+    }
+  }
+
+  // When RR is enabled, prefill missing RR with defaults
+  useEffect(() => {
+    if (!enableRR) return
+    setChannels((prev: ChannelRow[]) => prev.map((c) => (
+      c.type && (c.response_rate === undefined || Number.isNaN(Number(c.response_rate)))
+        ? { ...c, response_rate: defaultRRByType(c.type) }
+        : c
+    )))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enableRR])
 
   const usedChannelTypes = useMemo(
     () => new Set(channels.map((c) => c.type).filter(Boolean) as ChannelType[]),
@@ -446,7 +470,14 @@ export default function Home() {
                 <div className="sm:col-span-5">
                   <Select
                     value={row.type}
-                    onValueChange={(v: ChannelType) => updateChannel(row.id, { type: v })}
+                    onValueChange={(v: ChannelType) => {
+                      if (enableRR) {
+                        const def = defaultRRByType(v)
+                        updateChannel(row.id, { type: v, response_rate: def })
+                      } else {
+                        updateChannel(row.id, { type: v })
+                      }
+                    }}
                   >
                     <SelectTrigger className="h-9 w-full min-w-[176px]" aria-label="Channel">
                       <SelectValue placeholder={t("select_channel")} />
