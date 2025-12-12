@@ -69,6 +69,7 @@ type OptimizeResponse = {
 
 export default function Home() {
   const { t, lang } = useI18n()
+  const backendBase = (process.env.NEXT_PUBLIC_PY_BACKEND_URL || "").trim().replace(/\/$/, "")
   const preventInvalidNumberKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const k = e.key
     if (k === '-' || k === '+' || k === 'e' || k === 'E' || k === ',') {
@@ -113,7 +114,8 @@ export default function Home() {
         channels: channelsMap,
         products: productsMap,
       }
-      const resp = await fetch('/api/optimize/csv', {
+      const directCsv = advanced && backendBase
+      const resp = await fetch(directCsv ? `${backendBase}/optimize_csv` : '/api/optimize/csv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payloadV2),
@@ -333,7 +335,8 @@ export default function Home() {
       channels: channelsMap,
       products: productsMap,
     }
-    fetch("/api/optimize", {
+    const direct = advanced && backendBase
+    fetch(direct ? `${backendBase}/optimize` : "/api/optimize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payloadV2),
