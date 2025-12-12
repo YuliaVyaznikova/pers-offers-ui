@@ -278,16 +278,7 @@ export default function Home() {
     if (anyMissingChannelFields || anyMissingProductFields || missingBudget) {
       msgs.push(t("err_all_fields_required"))
     }
-    // budget checks
-    const costs = selectedChannels.map(c => Number(c.cost ?? 0)).filter(v => v > 0)
-    const minCost = costs.length ? Math.min(...costs) : 0
-    if (minCost > 0 && bud > 0 && bud < minCost) {
-      msgs.push(`${t("err_budget_too_small_min_cost")} ${minCost.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽`)
-    }
-    const required = selectedChannels.reduce((sum, c) => sum + (Math.max(0, Number(c.max ?? 0)) * Math.max(0, Number(c.cost ?? 0))), 0)
-    if (required > 0 && bud > 0 && bud < required) {
-      msgs.push(`${t("err_budget_vs_volume")} ${Math.round(required).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽`)
-    }
+    // budget checks relaxed: let backend attempt optimization even if budget seems small
     // response rate policy driven by user's toggle
     if (enableRR) {
       const anyMissingRR = selectedChannels.some(c => c.response_rate === undefined || Number.isNaN(Number(c.response_rate)))
@@ -336,29 +327,87 @@ export default function Home() {
       products: productsMap,
     }
     const direct = advanced && backendBase
-    fetch(direct ? `${backendBase}/optimize` : "/api/optimize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payloadV2),
-    })
-      .then(async (r) => {
-        const data = await r.json().catch(() => null)
-        if (!r.ok) {
-          const serverMsgs: string[] = Array.isArray((data as any)?.messages) ? (data as any).messages : [String((data as any)?.message || "Error")]
-          setErrors([t("api_error_prefix"), ...serverMsgs])
+    if (direct) {
+      // Advanced: use async job API to avoid long-lived HTTP and allow backend queueing
+      ;(async () => {
+        try {
+          const resp = await fetch(`${backendBase}/optimize_async`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payloadV2),
+          })
+          const j = await resp.json().catch(() => null)
+          if (!resp.ok || !j?.job_id) {
+            const serverMsgs: string[] = Array.isArray(j?.messages) ? j.messages : [String(j?.message || "Error")]
+            setErrors([t("api_error_prefix"), ...serverMsgs])
+            setResults(null)
+            return
+          }
+          const jobId: string = j.job_id
+          const started = Date.now()
+          // poll until done or timeout (~3.5 min safety)
+          while (true) {
+            const r2 = await fetch(`${backendBase}/jobs/${encodeURIComponent(jobId)}`)
+            const j2 = await r2.json().catch(() => null)
+            if (!r2.ok) {
+              const serverMsgs: string[] = Array.isArray(j2?.messages) ? j2.messages : [String(j2?.message || "Error")]
+              setErrors([t("api_error_prefix"), ...serverMsgs])
+              setResults(null)
+              break
+            }
+            const st = j2?.status
+            if (st === "done" && j2?.result) {
+              setResults(j2.result as any)
+              break
+            }
+            if (st === "error") {
+              setErrors([t("api_error_prefix"), String(j2?.error || "Error")])
+              setResults(null)
+              break
+            }
+            if (Date.now() - started > 210000) { // 210s safety
+              setErrors([t("api_error_prefix"), "Timeout waiting for optimization result"]) 
+              setResults(null)
+              break
+            }
+            await new Promise(res => setTimeout(res, 2000))
+          }
+        } catch (e) {
+          console.error(e)
+          setErrors([t("api_error_prefix"), String(e)])
           setResults(null)
-          return null
+        } finally {
+          const MIN_LOADING_MS = 3000
+          const elapsed = Date.now() - start
+          const remain = Math.max(0, MIN_LOADING_MS - elapsed)
+          window.setTimeout(() => setLoading(false), remain)
         }
-        return data
+      })()
+    } else {
+      fetch("/api/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadV2),
       })
-      .then((data) => { if (data) setResults(data) })
-      .catch((e) => console.error(e))
-      .finally(() => {
-        const MIN_LOADING_MS = 3000
-        const elapsed = Date.now() - start
-        const remain = Math.max(0, MIN_LOADING_MS - elapsed)
-        window.setTimeout(() => setLoading(false), remain)
-      })
+        .then(async (r) => {
+          const data = await r.json().catch(() => null)
+          if (!r.ok) {
+            const serverMsgs: string[] = Array.isArray((data as any)?.messages) ? (data as any).messages : [String((data as any)?.message || "Error")]
+            setErrors([t("api_error_prefix"), ...serverMsgs])
+            setResults(null)
+            return null
+          }
+          return data
+        })
+        .then((data) => { if (data) setResults(data) })
+        .catch((e) => console.error(e))
+        .finally(() => {
+          const MIN_LOADING_MS = 3000
+          const elapsed = Date.now() - start
+          const remain = Math.max(0, MIN_LOADING_MS - elapsed)
+          window.setTimeout(() => setLoading(false), remain)
+        })
+    }
   }
 
   return (
